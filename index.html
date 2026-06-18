@@ -702,6 +702,47 @@ table.schedule tfoot td.total-c{
 .gen-warnings .title{font-weight:600;color:var(--danger);margin-bottom:4px}
 .gen-warnings ul{margin:4px 0 0 18px;color:var(--text)}
 .gen-warnings li{margin:2px 0}
+
+/* banner note di generazione (fuori dal modal) */
+.gen-banner{
+  background:#FFFBEB;
+  border:1px solid #FCD34D;
+  border-left:4px solid #F59E0B;
+  border-radius:10px;
+  padding:14px 18px;
+  margin-bottom:16px;
+  display:flex;
+  gap:14px;
+  align-items:flex-start;
+}
+.gen-banner .icon{
+  font-size:20px;
+  line-height:1;
+  margin-top:1px;
+}
+.gen-banner .body{flex:1;min-width:0}
+.gen-banner .title{
+  font-weight:600;
+  color:#92400E;
+  font-size:13px;
+  margin-bottom:4px;
+}
+.gen-banner ul{
+  margin:0 0 0 18px;
+  color:#78350F;
+  font-size:12px;
+}
+.gen-banner li{margin:2px 0}
+.gen-banner .close-banner{
+  border:none;
+  background:transparent;
+  color:#92400E;
+  cursor:pointer;
+  font-size:18px;
+  line-height:1;
+  padding:0 4px;
+}
+.gen-banner .close-banner:hover{color:var(--danger)}
 </style>
 </head>
 <body>
@@ -748,6 +789,8 @@ table.schedule tfoot td.total-c{
     <span class="chip R">R <small>riposo</small></span>
     <span class="chip b">b <small>permesso</small></span>
   </div>
+
+  <div id="gen-banner-container"></div>
 
   <div class="table-wrap">
     <div class="table-scroll">
@@ -879,7 +922,7 @@ table.schedule tfoot td.total-c{
     <div class="modal-footer">
       <button class="btn btn-ghost" data-close="generate-modal">Annulla</button>
       <button class="btn" id="gen-clear-btn">Cancella e rigenera</button>
-      <button class="btn btn-primary" id="gen-preserve-btn">Genera</button>
+      <button class="btn btn-primary" id="gen-preserve-btn">✓ Genera piano</button>
     </div>
   </div>
 </div>
@@ -1694,31 +1737,41 @@ function readGenerateConfig(){
 document.getElementById('gen-preserve-btn').addEventListener('click', ()=>{
   readGenerateConfig();
   const warnings = generateSchedule({clearAll:false});
-  if(warnings.length){
-    showWarnings(warnings);
-  }else{
-    closeModal('generate-modal');
-    toast('Piano generato');
-  }
+  closeModal('generate-modal');
+  showGenerationResult(warnings, false);
 });
 document.getElementById('gen-clear-btn').addEventListener('click', ()=>{
   if(!confirm('Verranno cancellati anche i turni manuali e le assenze inserite nel mese corrente. Continuare?')) return;
   readGenerateConfig();
   const warnings = generateSchedule({clearAll:true});
-  if(warnings.length){
-    showWarnings(warnings);
-  }else{
-    closeModal('generate-modal');
-    toast('Piano rigenerato');
-  }
+  closeModal('generate-modal');
+  showGenerationResult(warnings, true);
 });
 
+function showGenerationResult(warnings, cleared){
+  const container = document.getElementById('gen-banner-container');
+  if(warnings.length === 0){
+    container.innerHTML = '';
+    toast(cleared ? 'Piano rigenerato' : 'Piano generato');
+    return;
+  }
+  // Banner persistente con le note
+  container.innerHTML = `
+    <div class="gen-banner">
+      <div class="icon">⚠️</div>
+      <div class="body">
+        <div class="title">Piano generato con ${warnings.length} ${warnings.length===1?'nota':'note'}</div>
+        <ul>${warnings.map(w=>`<li>${escapeHtml(w)}</li>`).join('')}</ul>
+      </div>
+      <button class="close-banner" onclick="document.getElementById('gen-banner-container').innerHTML=''" title="Chiudi">×</button>
+    </div>
+  `;
+  toast('Piano generato (vedi note sopra)');
+}
+
 function showWarnings(warnings){
-  const box = document.getElementById('gen-warnings');
-  const list = document.getElementById('gen-warnings-list');
-  list.innerHTML = warnings.map(w=>`<li>${escapeHtml(w)}</li>`).join('');
-  box.style.display = 'block';
-  box.scrollIntoView({behavior:'smooth', block:'end'});
+  // legacy - sposta nel banner se chiamata dal vecchio flusso
+  showGenerationResult(warnings, false);
 }
 
 /* =====================================================
