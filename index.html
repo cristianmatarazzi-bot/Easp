@@ -714,6 +714,118 @@ table.schedule tfoot td.total-c{
 .gen-warnings ul{margin:4px 0 0 18px;color:var(--text)}
 .gen-warnings li{margin:2px 0}
 
+/* ---------- ABSENCES MODAL ---------- */
+.absence-card{
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:12px 14px;
+  margin-bottom:10px;
+  background:var(--surface-soft);
+}
+.absence-name{
+  font-weight:600;
+  color:var(--navy-dark);
+  font-size:13px;
+  margin-bottom:8px;
+  padding-bottom:6px;
+  border-bottom:1px dashed var(--border);
+}
+.absence-name .badge{
+  font-size:9px;background:var(--navy);color:white;
+  padding:1px 6px;border-radius:4px;margin-left:6px;
+  letter-spacing:0.04em;
+}
+.absence-section{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:5px 0;
+  flex-wrap:wrap;
+}
+.absence-label{
+  display:flex;align-items:center;gap:6px;
+  font-size:12px;color:var(--text-soft);
+  min-width:140px;
+}
+.absence-items{
+  flex:1;
+  display:flex;flex-wrap:wrap;gap:4px;
+  align-items:center;
+  min-width:0;
+}
+.absence-items .empty{
+  color:var(--text-muted);font-size:11px;font-style:italic;
+}
+.abs-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:3px 4px 3px 8px;
+  border-radius:5px;
+  font-size:12px;
+  font-weight:600;
+}
+.abs-chip.F   {background:var(--F-bg);   color:var(--F-fg)}
+.abs-chip.L104{background:var(--L104-bg);color:var(--L104-fg)}
+.abs-chip.MAL {background:var(--MAL-bg); color:var(--MAL-fg)}
+.abs-chip.b   {background:var(--b-bg);   color:var(--b-fg)}
+.abs-chip button{
+  border:none;
+  background:rgba(0,0,0,0.08);
+  color:inherit;
+  width:18px;height:18px;
+  border-radius:3px;
+  cursor:pointer;
+  font-size:13px;
+  line-height:1;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+.abs-chip button:hover{background:rgba(0,0,0,0.18)}
+.add-abs{
+  border:1px dashed var(--border-strong);
+  background:transparent;
+  color:var(--text-soft);
+  width:24px;height:24px;
+  border-radius:5px;
+  cursor:pointer;
+  font-size:14px;
+  font-weight:600;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+}
+.add-abs:hover{border-color:var(--navy);color:var(--navy)}
+
+.inline-form{
+  margin-top:6px;
+  padding:8px 10px;
+  background:var(--surface);
+  border:1px solid var(--navy);
+  border-radius:8px;
+  display:flex;align-items:center;gap:6px;
+  flex-wrap:wrap;
+  width:100%;
+}
+.inline-form span{font-size:12px;color:var(--text-soft)}
+.inline-form input[type=number]{
+  width:54px;padding:4px 6px;
+  border:1px solid var(--border);border-radius:5px;
+  font:inherit;text-align:center;
+}
+.inline-form input[type=number]:focus{outline:none;border-color:var(--navy)}
+.btn-sm{padding:4px 10px;font-size:12px}
+.absence-toolbar{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:12px;
+  padding:8px 12px;
+  background:var(--surface-soft);
+  border-radius:8px;
+}
+.absence-toolbar small{color:var(--text-soft);font-size:11px}
+
 /* banner note di generazione (fuori dal modal) */
 .gen-banner{
   background:#FFFBEB;
@@ -780,6 +892,7 @@ table.schedule tfoot td.total-c{
     <button class="btn btn-ghost" id="edit-nurses-btn">Infermieri</button>
     <button class="btn btn-ghost" id="config-hours-btn">Ore turni</button>
     <button class="btn btn-ghost" id="backup-btn">Backup</button>
+    <button class="btn" id="absences-btn">📅 Assenze</button>
     <button class="btn" id="generate-btn">⚙️ Genera piano</button>
     <button class="btn btn-primary" id="export-pdf-btn">📄 Esporta PDF</button>
   </div>
@@ -864,6 +977,25 @@ table.schedule tfoot td.total-c{
   </div>
 </div>
 
+<!-- Modal: assenze del mese -->
+<div class="modal-backdrop" id="absences-modal">
+  <div class="modal wide">
+    <div class="modal-header">
+      <h2 id="absences-title">Assenze del mese</h2>
+      <button class="close" data-close="absences-modal">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="absence-toolbar">
+        <small>Inserisci ferie, permessi 104, malattie e altri permessi per ogni infermiere. Le modifiche sono salvate automaticamente e vengono rispettate al momento della generazione.</small>
+      </div>
+      <div id="absences-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" data-close="absences-modal">Chiudi</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: generazione automatica -->
 <div class="modal-backdrop" id="generate-modal">
   <div class="modal wide">
@@ -932,6 +1064,7 @@ table.schedule tfoot td.total-c{
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" data-close="generate-modal">Annulla</button>
+      <button class="btn" id="gen-clear-only-btn">🗑 Cancella mese</button>
       <button class="btn" id="gen-clear-btn">Cancella e rigenera</button>
       <button class="btn btn-primary" id="gen-preserve-btn">✓ Genera piano</button>
     </div>
@@ -1649,6 +1782,181 @@ function renderAll(){
 document.getElementById('edit-nurses-btn').addEventListener('click', openNursesModal);
 document.getElementById('config-hours-btn').addEventListener('click', openHoursModal);
 document.getElementById('generate-btn').addEventListener('click', openGenerateModal);
+document.getElementById('absences-btn').addEventListener('click', openAbsencesModal);
+
+/* =====================================================
+   MODAL: ASSENZE
+   ===================================================== */
+function getAbsenceRanges(ni, code){
+  const sched = currentMonthSchedule();
+  const ndays = daysInMonth(state.year, state.month);
+  const ranges = [];
+  let start = null;
+  for(let d=1; d<=ndays+1; d++){
+    const match = (d <= ndays && sched[ni]?.[d] === code);
+    if(match){
+      if(start === null) start = d;
+    } else {
+      if(start !== null){
+        ranges.push({from:start, to:d-1});
+        start = null;
+      }
+    }
+  }
+  return ranges;
+}
+
+function addAbsenceRange(ni, code, from, to){
+  const sched = currentMonthSchedule();
+  if(!sched[ni]) sched[ni] = {};
+  for(let d=from; d<=to; d++){
+    sched[ni][d] = code;
+  }
+  saveState();
+  renderAll();
+}
+
+function removeAbsenceRange(ni, from, to){
+  const sched = currentMonthSchedule();
+  for(let d=from; d<=to; d++){
+    if(sched[ni]?.[d]) delete sched[ni][d];
+  }
+  saveState();
+  renderAll();
+}
+
+function openAbsencesModal(){
+  document.getElementById('absences-title').textContent =
+    `Assenze — ${MONTHS[state.month]} ${state.year}`;
+
+  const list = document.getElementById('absences-list');
+  list.innerHTML = state.nurses.map((n, ni) => {
+    const ferie = getAbsenceRanges(ni, 'F');
+    const l104 = getAbsenceRanges(ni, '104');
+    const mal  = getAbsenceRanges(ni, 'MAL');
+    const oth  = getAbsenceRanges(ni, 'b');
+
+    const renderRanges = (ranges, cssClass) =>
+      ranges.length === 0
+        ? '<span class="empty">nessuna</span>'
+        : ranges.map(r =>
+            `<span class="abs-chip ${cssClass}">${r.from===r.to ? r.from : `${r.from}–${r.to}`} <button data-remove data-ni="${ni}" data-from="${r.from}" data-to="${r.to}" title="Rimuovi">×</button></span>`
+          ).join('');
+
+    return `<div class="absence-card" data-ni="${ni}">
+      <div class="absence-name">${escapeHtml(n.name)}${n.isHead?' <span class="badge">CAPOSALA</span>':''}</div>
+
+      <div class="absence-section">
+        <span class="absence-label"><span class="chip F">F</span> Ferie</span>
+        <div class="absence-items">${renderRanges(ferie,'F')}</div>
+        <button class="add-abs" data-type="F" data-range="1" data-ni="${ni}" title="Aggiungi ferie">+</button>
+      </div>
+
+      <div class="absence-section">
+        <span class="absence-label"><span class="chip L104">104</span> Permessi 104</span>
+        <div class="absence-items">${renderRanges(l104,'L104')}</div>
+        <button class="add-abs" data-type="104" data-range="0" data-ni="${ni}" title="Aggiungi giorno 104">+</button>
+      </div>
+
+      <div class="absence-section">
+        <span class="absence-label"><span class="chip MAL">MAL</span> Malattia</span>
+        <div class="absence-items">${renderRanges(mal,'MAL')}</div>
+        <button class="add-abs" data-type="MAL" data-range="1" data-ni="${ni}" title="Aggiungi malattia">+</button>
+      </div>
+
+      <div class="absence-section">
+        <span class="absence-label"><span class="chip b">b</span> Altri permessi</span>
+        <div class="absence-items">${renderRanges(oth,'b')}</div>
+        <button class="add-abs" data-type="b" data-range="1" data-ni="${ni}" title="Aggiungi permesso">+</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Rimozione
+  list.querySelectorAll('[data-remove]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ni = parseInt(btn.dataset.ni, 10);
+      const from = parseInt(btn.dataset.from, 10);
+      const to = parseInt(btn.dataset.to, 10);
+      removeAbsenceRange(ni, from, to);
+      openAbsencesModal();
+    });
+  });
+
+  // Aggiunta (apre form inline)
+  list.querySelectorAll('.add-abs').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const ni = parseInt(btn.dataset.ni, 10);
+      const type = btn.dataset.type;
+      const isRange = btn.dataset.range === '1';
+      showAddAbsenceForm(ni, type, isRange, btn);
+    });
+  });
+
+  openModal('absences-modal');
+}
+
+function showAddAbsenceForm(ni, type, isRange, anchorBtn){
+  const ndays = daysInMonth(state.year, state.month);
+  const section = anchorBtn.closest('.absence-section');
+
+  // Toggle: se già aperto, chiudilo
+  const existing = section.parentElement.querySelector('.inline-form');
+  if(existing){
+    existing.remove();
+    // se stesso bottone → just close
+    if(existing.dataset.type === type) return;
+  }
+
+  const form = document.createElement('div');
+  form.className = 'inline-form';
+  form.dataset.type = type;
+  if(isRange){
+    form.innerHTML = `
+      <span>Dal giorno</span>
+      <input type="number" min="1" max="${ndays}" class="day-from" autofocus>
+      <span>al giorno</span>
+      <input type="number" min="1" max="${ndays}" class="day-to">
+      <button class="btn btn-primary btn-sm" data-confirm>OK</button>
+      <button class="btn btn-ghost btn-sm" data-cancel>Annulla</button>
+    `;
+  } else {
+    form.innerHTML = `
+      <span>Giorno</span>
+      <input type="number" min="1" max="${ndays}" class="day-single" autofocus>
+      <button class="btn btn-primary btn-sm" data-confirm>OK</button>
+      <button class="btn btn-ghost btn-sm" data-cancel>Annulla</button>
+    `;
+  }
+  section.parentElement.appendChild(form);
+  setTimeout(()=> form.querySelector('input')?.focus(), 50);
+
+  const submit = () => {
+    if(isRange){
+      const from = parseInt(form.querySelector('.day-from').value, 10);
+      let to = parseInt(form.querySelector('.day-to').value, 10);
+      if(isNaN(to) && !isNaN(from)) to = from;
+      if(isNaN(from) || from < 1 || from > ndays){ alert('Giorno "dal" non valido (1–'+ndays+')'); return; }
+      if(to < from || to > ndays){ alert('Giorno "al" non valido (deve essere tra '+from+' e '+ndays+')'); return; }
+      addAbsenceRange(ni, type, from, to);
+    } else {
+      const d = parseInt(form.querySelector('.day-single').value, 10);
+      if(isNaN(d) || d < 1 || d > ndays){ alert('Giorno non valido (1–'+ndays+')'); return; }
+      addAbsenceRange(ni, type, d, d);
+    }
+    openAbsencesModal();
+  };
+
+  form.querySelector('[data-confirm]').addEventListener('click', submit);
+  form.querySelector('[data-cancel]').addEventListener('click', () => form.remove());
+  form.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('keydown', e => {
+      if(e.key === 'Enter') submit();
+      else if(e.key === 'Escape') form.remove();
+    });
+  });
+}
 
 /* =====================================================
    MODAL: GENERAZIONE AUTOMATICA
@@ -1757,6 +2065,17 @@ document.getElementById('gen-clear-btn').addEventListener('click', ()=>{
   const warnings = generateSchedule({clearAll:true});
   closeModal('generate-modal');
   showGenerationResult(warnings, true);
+});
+
+document.getElementById('gen-clear-only-btn').addEventListener('click', ()=>{
+  if(!confirm('Cancellare COMPLETAMENTE il piano del mese (turni, riposi e assenze)? Il mese rimarrà vuoto, pronto per l\'inserimento manuale.')) return;
+  const k = monthKey(state.year, state.month);
+  state.schedule[k] = {};
+  saveState();
+  renderAll();
+  closeModal('generate-modal');
+  document.getElementById('gen-banner-container').innerHTML = '';
+  toast('Mese cancellato');
 });
 
 function showGenerationResult(warnings, cleared){
