@@ -368,6 +368,9 @@ table.schedule tfoot td.total-c{
   border-radius:16px;
   width:100%;
   max-width:480px;
+  max-height:90vh;
+  display:flex;
+  flex-direction:column;
   box-shadow:0 20px 60px rgba(15,52,112,0.25);
   overflow:hidden;
   animation:pop .18s ease-out;
@@ -380,6 +383,7 @@ table.schedule tfoot td.total-c{
   padding:18px 22px;
   border-bottom:1px solid var(--border);
   display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;
 }
 .modal-header h2{
   font-family:'Fraunces',serif;
@@ -392,12 +396,19 @@ table.schedule tfoot td.total-c{
   color:var(--text-muted);font-size:22px;line-height:1;padding:4px;
 }
 .modal-header .close:hover{color:var(--text)}
-.modal-body{padding:20px 22px}
+.modal-body{
+  padding:20px 22px;
+  overflow-y:auto;
+  flex:1 1 auto;
+  min-height:0;
+}
 .modal-footer{
   padding:14px 22px;
   border-top:1px solid var(--border);
   background:var(--surface-soft);
   display:flex;justify-content:flex-end;gap:8px;
+  flex-shrink:0;
+  box-shadow:0 -2px 8px rgba(15,52,112,0.06);
 }
 
 .shift-grid{
@@ -907,7 +918,7 @@ table.schedule tfoot td.total-c{
             <input type="checkbox" id="con-smonto">
           </div>
           <div class="constraint-row">
-            <label>Caposala solo nei feriali</label>
+            <label>Caposala dal lunedì al sabato</label>
             <input type="checkbox" id="con-capo-weekdays">
           </div>
         </div>
@@ -966,7 +977,7 @@ const DEFAULT_SHIFTS_NURSE = ['M','P','N','M/P'];
 const DEFAULT_SHIFTS_HEAD  = ['OS','M','P','M/P'];
 
 const DEFAULT_NURSES = [
-  {name:'MINELLI MIRIAM',       isHead:true,  targetHours:132, allowedShifts:[...DEFAULT_SHIFTS_HEAD]},
+  {name:'MINELLI MIRIAM',       isHead:true,  targetHours:156, allowedShifts:[...DEFAULT_SHIFTS_HEAD]},
   {name:'BIAGIOLI FABIANA',     isHead:false, targetHours:FULL_TIME_HOURS, allowedShifts:[...DEFAULT_SHIFTS_NURSE]},
   {name:'SALDI ANNA LAURA',     isHead:false, targetHours:FULL_TIME_HOURS, allowedShifts:[...DEFAULT_SHIFTS_NURSE]},
   {name:'GASPARRI ENRICO',      isHead:false, targetHours:FULL_TIME_HOURS, allowedShifts:[...DEFAULT_SHIFTS_NURSE]},
@@ -1019,7 +1030,7 @@ function loadState(){
     }
     // Migrazione: aggiungo campi mancanti agli infermieri salvati prima della v2
     state.nurses.forEach(n=>{
-      if(typeof n.targetHours !== 'number') n.targetHours = n.isHead ? 132 : FULL_TIME_HOURS;
+      if(typeof n.targetHours !== 'number') n.targetHours = 156;
       if(!Array.isArray(n.allowedShifts) || n.allowedShifts.length === 0){
         n.allowedShifts = n.isHead ? [...DEFAULT_SHIFTS_HEAD] : [...DEFAULT_SHIFTS_NURSE];
       }
@@ -1845,8 +1856,7 @@ function generateSchedule({clearAll=false} = {}){
   // STEP 3: per ogni giorno, riempi
   for(let d=1; d<=ndays; d++){
     const dow = new Date(state.year, state.month, d).getDay(); // 0=dom, 6=sab
-    const isWeekday = dow >= 1 && dow <= 5;
-    const isWeekend = dow === 0 || dow === 6;
+    const isCapoWorkDay = dow >= 1 && dow <= 6; // lunedì-sabato
 
     // 3a) prima registro le assenze già presenti nello stato
     for(let ni=0; ni<state.nurses.length; ni++){
@@ -1869,8 +1879,8 @@ function generateSchedule({clearAll=false} = {}){
       if(!state.nurses[ni].isHead) continue;
       if(sched[ni][d]) continue;
       if(!ns[ni].allowedShifts.includes('OS')) continue;
-      if(state.capoOnWeekdaysOnly && !isWeekday){
-        // weekend: riposo
+      if(state.capoOnWeekdaysOnly && !isCapoWorkDay){
+        // domenica: riposo
         sched[ni][d] = 'R';
         ns[ni].consecutiveWork = 0;
         ns[ni].consecutiveNights = 0;
@@ -1879,6 +1889,7 @@ function generateSchedule({clearAll=false} = {}){
         ns[ni].hoursAssigned += hoursOf('OS');
         ns[ni].consecutiveWork += 1;
         ns[ni].consecutiveNights = 0;
+        if(ns[ni].shiftCounts['OS'] !== undefined) ns[ni].shiftCounts['OS'] += 1;
       }else{
         sched[ni][d] = 'R';
         ns[ni].consecutiveWork = 0;
@@ -1947,19 +1958,19 @@ function generateSchedule({clearAll=false} = {}){
     }
 
     // 3e) riempi le celle vuote rimanenti
+    // Conto quanti turni di ogni tipo sono già assegnati oggi (per non superare la copertura)
+    const dayShiftCounts = {};
+    for(let ni=0; ni<state.nurses.length; ni++){
+      const c = sched[ni][d];
+      if(c) dayShiftCounts[c] = (dayShiftCounts[c]||0) + 1;
+    }
+
     for(let ni=0; ni<state.nurses.length; ni++){
       if(sched[ni][d]) continue;
       const s = ns[ni];
 
       // se l'ultimo turno era N → smonto
       if(state.forceSmonto && d > 1 && sched[ni][d-1] === 'N'){
-        sched[ni][d] = 'R';
-        s.consecutiveWork = 0;
-        s.consecutiveNights = 0;
-        continue;
-      }
-      // se già alle ore target o sopra → R
-      if(s.hoursAssigned >= s.targetHours){
         sched[ni][d] = 'R';
         s.consecutiveWork = 0;
         s.consecutiveNights = 0;
@@ -1973,51 +1984,29 @@ function generateSchedule({clearAll=false} = {}){
         continue;
       }
 
-      // Heuristica progresso proporzionale: confronto avanzamento ore vs avanzamento mese
-      const progressHours = s.hoursAssigned / Math.max(s.targetHours, 1);
-      const progressMonth = d / ndays;
-      const aheadBy = progressHours - progressMonth;
-
-      // Se siamo molto avanti sulle ore E ha già lavorato di seguito → R
-      if(aheadBy > 0.06 && s.consecutiveWork >= 2){
-        sched[ni][d] = 'R';
-        s.consecutiveWork = 0;
-        s.consecutiveNights = 0;
-        continue;
-      }
-      // Se è weekend e in pari/avanti → R (preferisce riposi nel weekend)
-      const isWeekend = dow === 0 || dow === 6;
-      if(isWeekend && aheadBy > -0.02 && s.consecutiveWork >= 1){
-        sched[ni][d] = 'R';
-        s.consecutiveWork = 0;
-        s.consecutiveNights = 0;
-        continue;
-      }
-      // Se ha già lavorato 4-5 giorni di fila e non è in netto ritardo → R
-      if(s.consecutiveWork >= 4 && aheadBy > -0.04){
-        sched[ni][d] = 'R';
-        s.consecutiveWork = 0;
-        s.consecutiveNights = 0;
-        continue;
-      }
-
-      // Assegna un turno extra: rotazione tra i turni consentiti, preferendo quelli fatti meno
-      const possible = ['M/P','M','P'].filter(sh => s.allowedShifts.includes(sh));
+      // Cerco un turno la cui copertura giornaliera NON è ancora piena
+      // (rispetto la regola "una sola sigla per tipo al giorno")
+      const possible = ['M/P','M','P'].filter(sh =>
+        s.allowedShifts.includes(sh) &&
+        (dayShiftCounts[sh]||0) < (state.coverage[sh]||0)
+      );
+      // ordino per "fatti meno" per varietà
       possible.sort((a,b)=> (s.shiftCounts[a]||0) - (s.shiftCounts[b]||0));
 
       let done = false;
       for(const sh of possible){
         const hrs = hoursOf(sh);
-        if(s.hoursAssigned + hrs > s.targetHours + 8) continue; // non eccedere troppo
         sched[ni][d] = sh;
         s.hoursAssigned += hrs;
         s.consecutiveWork += 1;
         s.consecutiveNights = 0;
         if(s.shiftCounts[sh] !== undefined) s.shiftCounts[sh] += 1;
+        dayShiftCounts[sh] = (dayShiftCounts[sh]||0) + 1;
         done = true;
         break;
       }
       if(!done){
+        // nessun turno disponibile (copertura giornaliera già piena) → riposo
         sched[ni][d] = 'R';
         s.consecutiveWork = 0;
         s.consecutiveNights = 0;
